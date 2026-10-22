@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Recogidas</title>
+    <link rel="manifest" href="manifest.json">
+    <link rel="stylesheet" href="styles.css">
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="./vendor/sweetalert2.all.min.js"></script>
+</head>
+<body>
+    <h1>Gestión de Recogidas</h1>
+
+    <!-- Botón cerrar -->
+    <button id="btnCerrar" aria-label="Cerrar aplicación" title="Cerrar">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18"></line>
+            <line x1="6" y1="6" x2="18" y2="18"></line>
+        </svg>
+    </button>
+
+    <!-- Modal para mostrar registros -->
+    <div id="modalRegistros" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:2000; overflow:auto;">
+        <div style="background:white; margin:20px; padding:20px; border-radius:8px; max-height:90vh; overflow:auto;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h2>Registros Guardados Localmente</h2>
+                <button id="btnCerrarModal" style="background:#dc3545; color:white; padding:8px 12px; border:none; border-radius:4px; cursor:pointer;">? Cerrar</button>
+            </div>
+            <!-- Botón importar dentro del modal (solo visible si no hay registros) -->
+            <div id="importarEnModal" style="display:none; text-align:center; margin-bottom:15px;">
+                <input type="file" id="importarJSON" accept=".json" style="display:none;">
+                <button id="btnImportarModal" style="background:#ffc107; color:#000; padding:8px 12px; border:none; border-radius:4px; cursor:pointer; font-size:14px;">?? Importar backup</button>
+            </div>
+            <div id="contenidoRegistros"></div>
+        </div>
+    </div>
+
+    <form id="formulario">
+        <!-- [TODO TU FORMULARIO EXISTENTE - SIN CAMBIOS] -->
+        <!-- Número de entrada -->
+        <div class="form-group">
+            <label for="numero_entrada">Número de entrada:</label>
+            <input type="text" id="numero_entrada" name="numero_entrada" readonly>
+        </div>
+
+        <!-- Especie común -->
+        <div class="form-group">
+            <label for="especie_comun">Especie (nombre común):</label>
+            <input list="especies-comun-list" id="especie_comun" name="especie_comun" required spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">
+            <datalist id="especies-comun-list"></datalist>
+        </div>
+
+        <!-- Especie científica -->
+        <div class="form-group">
+            <label for="especie_cientifico">Especie (nombre científico):</label>
+            <input list="especies-cientifico-list" id="especie_cientifico" name="especie_cientifico" required spellcheck="false" autocomplete="off" autocorrect="off" autocapitalize="off">
+            <datalist id="especies-cientifico-list"></datalist>
+        </div>
+
+        <!-- Cantidad de ejemplares -->
+        <div class="form-group">
+            <label for="cantidad_animales">Cantidad de ejemplares:</label>
+            <input type="number" id="cantidad_animales" name="cantidad_animales" min="1" required>
+        </div>
+
+        <!-- Fecha -->
+        <div class="form-group">
+            <label for="fecha">Fecha:</label>
+            <input type="date" id="fecha" name="fecha" required>
+        </div>
+
+        <!-- Municipio -->
+        <div class="form-group">
+            <label for="municipio">Municipio:</label>
+            <input list="municipios-list" id="municipio" name="municipio" required>
+            <datalist id="municipios-list"></datalist>
+        </div>
+
+       <!-- Campo: Posible Causa -->
+<fieldset>
+    <legend>Posible Causa</legend>
+    <div class="checkbox-grid">
+        <!-- Primera columna -->
+        <div>
+            <div>
+                <label for="ahogamiento">Ahogamiento</label>
+                <input type="radio" id="ahogamiento" name="posible_causa" value="Ahogamiento">
+            </div>
+            <div>
+                <label for="atrapado">Atrapado</label>
+                <input type="radio" id="atrapado" name="posible_causa" value="Atrapado">
+            </div>
+            <div>
+                <label for="atropello">Atropello</label>
+                <input type="radio" id="atropello" name="posible_causa" value="Atropello">
+            </div>
+            <div>
+                <label for="cria">Cría</label>
+                <input type="radio" id="cria" name="posible_causa" value="Cría">
+            </div>
+            <div>
+                <label for="decomiso">Decomiso</label>
+                <input type="radio" id="decomiso" name="posible_causa" value="Decomiso">
+            </div>
+            <div>
+                <label for="depredacion">Depredación</label>
+                <input type="radio" id="depredacion" name="posible_causa" value="Depredación">
+            </div>
+            <div>
+                <label for="desnutricion">Desnutrición</label>
+                <input type="radio" id="desnutricion" name="posible_causa" value="Desnutrición">
+            </div>
+            <div>
+                <label for="disparo">Disparo indeterminado</label>
+                <input type="radio" id="disparo" name="posible_causa" value="Disparo indeterminado">
+            </div>
+            <div>
+                <label for="electrocucion">Electrocución</label>
+                <input type="radio" id="electrocucion" name="posible_causa" value="Electrocución">
+            </div>
+        </div>
+
+        <!-- Segunda columna -->
+        <div>
+            <div>
+                <label for="cautividad">Cautividad / Entrega voluntaria</label>
+                <input type="radio" id="cautividad" name="posible_causa" value="Cautividad / Entrega voluntaria">
+            </div>
+            <div>
+                <label for="hallazgo">Hallazgo accidental</label>
+                <input type="radio" id="hallazgo" name="posible_causa" value="Hallazgo accidental">
+            </div>
+            <div>
+                <label for="indeterminada">Indeterminada</label>
+                <input type="radio" id="indeterminada" name="posible_causa" value="Indeterminada">
+            </div>
+            <div>
+                <label for="infecciosa">Infecciosa</label>
+                <input type="radio" id="infecciosa" name="posible_causa" value="Infecciosa">
+            </div>
+            <div>
+                <label for="intoxicacion">Intoxicación indeterminada</label>
+                <input type="radio" id="intoxicacion" name="posible_causa" value="Intoxicación indeterminada">
+            </div>
+            <div>
+                <label for="nacido_centro">Nacido en el Centro</label>
+                <input type="radio" id="nacido_centro" name="posible_causa" value="Nacido en el Centro">
+            </div>
+            <div>
+                <label for="trampeo">Trampeo indeterminado</label>
+                <input type="radio" id="trampeo" name="posible_causa" value="Trampeo indeterminado">
+            </div>
+            <div>
+                <label for="traumatismo">Traumatismo indeterminado</label>
+                <input type="radio" id="traumatismo" name="posible_causa" value="Traumatismo indeterminado">
+            </div>
+            <div>
+                 <label for="otras">Otras</label>  <!-- ✅ ESTO SIGUE SIENDO "OTRAS" -->
+                <input type="radio" id="otras" name="posible_causa" value="Otras">
+            </div>
+            <div id="otrasCausaWrapper" style="display:none; margin-top:8px; margin-left:20px;">
+                <label for="otrasCausaSelect">Especificar causa:</label>
+                <select id="otrasCausaSelect" name="otras_causa_select">
+                    <option value="" disabled selected>Selecciona una causa específica...</option>
+                    <option value="ahogamiento balsa / atrapado balsa">ahogamiento balsa / atrapado balsa</option>
+                    <option value="ahogamiento canal o acequia/ atrapado canal o acequia">ahogamiento canal o acequia/ atrapado canal o acequia</option>
+                    <option value="ahogamiento probable">ahogamiento probable</option>
+                    <option value="atrapado edificaciones">atrapado edificaciones</option>
+                    <option value="cautividad escapado">cautividad escapado</option>
+                    <option value="disparo acero">disparo acero</option>
+                    <option value="disparo plomo">disparo plomo</option>
+                    <option value="electrocución probable">electrocución probable</option>
+                    <option value="envenenamiento">envenenamiento</option>
+                    <option value="expolio">expolio</option>
+                    <option value="inclemencias meteorológicas">inclemencias meteorológicas</option>
+                    <option value="intoxicación botulismo">intoxicación botulismo</option>
+                    <option value="intoxicación indeterminada">intoxicación indeterminada</option>
+                    <option value="intoxicación pesticidas">intoxicación pesticidas</option>
+                    <option value="intoxicación petroleo">intoxicación petroleo</option>
+                    <option value="intoxicación plumbismo">intoxicación plumbismo</option>
+                    <option value="pesca anzuelo deportivo">pesca anzuelo deportivo</option>
+                    <option value="pesca anzuelo indeterminado">pesca anzuelo indeterminado</option>
+                    <option value="pesca anzuelo palangre">pesca anzuelo palangre</option>
+                    <option value="pesca indeterminado">pesca indeterminado</option>
+                    <option value="pesca no marina">pesca no marina</option>
+                    <option value="pesca red arrastre">pesca red arrastre</option>
+                    <option value="pesca red indeterminado">pesca red indeterminado</option>
+                    <option value="pesca red trasmallo">pesca red trasmallo</option>
+                    <option value="piscifactoría marina">piscifactoría marina</option>
+                    <option value="trampeo accidental">trampeo accidental</option>
+                    <option value="trampeo autorizado">trampeo autorizado</option>
+                    <option value="trampeo caja trampa">trampeo caja trampa</option>
+                    <option value="trampeo cepo">trampeo cepo</option>
+                    <option value="trampeo lazo">trampeo lazo</option>
+                    <option value="trampeo liga/visc/pegamento">trampeo liga/visc/pegamento</option>
+                    <option value="trampeo otros">trampeo otros</option>
+                    <option value="trampeo parany">trampeo parany</option>
+                    <option value="traslado">traslado</option>
+                    <option value="traumatismo aerogenerador">traumatismo aerogenerador</option>
+                    <option value="traumatismo aerogenerador probable">traumatismo aerogenerador probable</option>
+                    <option value="traumatismo cable eléctrico">traumatismo cable eléctrico</option>
+                    <option value="traumatismo cable eléctrico probable">traumatismo cable eléctrico probable</option>
+                    <option value="traumatismo cristalera">traumatismo cristalera</option>
+                    <option value="traumatismo cristalera autovía">traumatismo cristalera autovía</option>
+                    <option value="traumatismo cristalera edificaciones">traumatismo cristalera edificaciones</option>
+                    <option value="traumatismo cristalera padel">traumatismo cristalera padel</option>
+                    <option value="traumatismo vallado">traumatismo vallado</option>
+                    <option value="otras causas">otras causas</option>  <!-- ✅ ESTO ES "OTRAS CAUSAS" -->
+                </select>
+            </div>
+        </div>
+    </div>
+</fieldset>
+        <!-- Campo: Remitente -->
+        <fieldset>
+    <legend>Remitente</legend>
+    <div class="checkbox-grid">
+        <!-- Primera columna -->
+        <div>
+            <div>
+                <label for="medioambiental">A. Medioambiental</label>
+                <input type="radio" id="medioambiental" name="remitente" value="A. Medioambiental" required>
+            </div>
+            <div>
+                <label for="ayuntamiento">Ayuntamiento</label>
+                <input type="radio" id="ayuntamiento" name="remitente" value="Ayuntamiento">
+            </div>
+            <div>
+                <label for="crf_forn">CRF Forn del Vidre</label>
+                <input type="radio" id="crf_forn" name="remitente" value="CRF Forn del Vidre">
+            </div>
+            <div>
+                <label for="crf_santa_faz">CRF Santa Faz</label>
+                <input type="radio" id="crf_santa_faz" name="remitente" value="CRF Santa Faz">
+            </div>
+            <div>
+                <label for="cruz_roja">Cruz Roja</label>
+                <input type="radio" id="cruz_roja" name="remitente" value="Cruz Roja">
+            </div>
+        </div>
+
+        <!-- Segunda columna -->
+        <div>
+            <div>
+                <label for="guardia_civil">Guardia Civil</label>
+                <input type="radio" id="guardia_civil" name="remitente" value="Guardia Civil">
+            </div>
+            <div>
+                <label for="iberdrola">Iberdrola</label>
+                <input type="radio" id="iberdrola" name="remitente" value="Iberdrola">
+            </div>
+            <div>
+                <label for="personal_conselleria">Personal de Conselleria</label>
+                <input type="radio" id="personal_conselleria" name="remitente" value="Personal de Conselleria">
+            </div>
+            <div>
+                <label for="particular">Particular</label>
+                <input type="radio" id="particular" name="remitente" value="Particular">
+            </div>
+            <div>
+    <label for="otras_remitente">Otras</label>
+    <input type="radio" id="otras_remitente" name="remitente" value="Otras">
+</div>
+        </div>
+    </div>
+</fieldset>
+
+        <!-- Campo: Estado del Animal -->
+        <fieldset>
+    <legend>Estado del Animal</legend>
+    <div class="checkbox-grid">
+        <!-- Primera columna -->
+        <div>
+            <div>
+                <label for="animal_vivo">Animal Vivo</label>
+                <input type="radio" id="animal_vivo" name="estado_animal" value="Animal Vivo" required>
+            </div>
+            <div>
+                <label for="cadaver">Cadáver</label>
+                <input type="radio" id="cadaver" name="estado_animal" value="Cadáver">
+            </div>
+        </div>
+
+        <!-- Segunda columna -->
+        <div>
+            <div>
+                <label for="recoge_centro">Recoge Centro</label>
+                <input type="checkbox" id="recoge_centro" name="estado_animal" value="Recoge Centro">
+            </div>
+            <div>
+                <label for="recuperacion">Recuperación</label>
+                <input type="checkbox" id="recuperacion" name="estado_animal" value="Recuperación">
+                <!-- Campo dinámico para código de anilla -->
+                <span id="anillaWrapper" style="display:none; margin-left:8px;">
+                    <input type="text" id="anilla" name="anilla" placeholder="Código anilla" maxlength="30" style="width:140px; font-size:0.95em;">
+                </span>
+            </div>
+        </div>
+    </div>
+</fieldset>
+        <!-- Campos adicionales -->
+        <div class="form-group" style="display:flex;align-items:center;gap:6px;">
+            <label for="coordenadas">Coordenadas dadas o Dirección:</label>
+            <input type="text" id="coordenadas" name="coordenadas" style="flex:1;">
+            <button type="button" id="btnLocalizar" style="width:25%;min-width:60px;max-width:110px;padding:6px 4px;font-size:14px;white-space:nowrap;">Localizar</button>
+        </div>
+
+        <!-- Mapa -->
+        <div id="map" style="height: 600px;"></div>
+
+        <!-- Campo: Coordenadas del Mapa -->
+        <div class="form-group" style="display:flex;align-items:center;gap:6px;">
+            <label for="coordenadas_mapa">Coordenadas del Mapa:</label>
+            <input type="text" id="coordenadas_mapa" name="coordenadas_mapa" readonly style="flex:1;">
+            <button type="button" id="btnBorrarCoords" style="width:25%;min-width:60px;max-width:110px;padding:6px 4px;font-size:14px;white-space:nowrap;">Borrar</button>
+        </div>
+
+        <!-- Campo: Apoyo -->
+        <div class="form-group">
+            <label for="apoyo">Apoyo:</label>
+            <input type="text" id="apoyo" name="apoyo">
+        </div>
+
+        <!-- Campo: CRA y KM -->
+        <div class="form-group">
+            <label for="cra_km">CRA y KM:</label>
+            <input type="text" id="cra_km" name="cra_km">
+        </div>
+
+        <!-- Campo: Observaciones -->
+        <div class="form-group">
+            <label for="observaciones">Observaciones:</label>
+            <textarea id="observaciones" name="observaciones"></textarea>
+        </div>
+
+        <!-- Campo: Cumplimentado por -->
+        <div class="form-group">
+            <label for="cumplimentado_por">Cumplimentado por:</label>
+            <input type="text" id="cumplimentado_por" name="cumplimentado_por">
+        </div>
+
+        <!-- Campo: Teléfono Remitente -->
+      <div class="form-group">
+    <label for="telefono_remitente">Teléfono Remitente:</label>
+    <input type="tel" id="telefono_remitente" name="telefono_remitente" required 
+           list="telefonos-list">
+    <datalist id="telefonos-list">
+        <option value="Sin teléfono">
+    </datalist>
+</div>
+
+        <!-- Campo para tomar una foto -->
+        <div class="form-group">
+            <label for="foto">Tomar una foto:</label>
+            <input type="file" id="foto" name="foto" accept="image/*" capture="environment">
+        </div>
+
+        <!-- Botón de Envío -->
+        <button type="submit" id="enviarBtn">Enviar</button>
+        
+        <!-- BOTONES NUEVOS EN LA MISMA LÍNEA -->
+<div style="margin-top: 15px; text-align: center; display:flex; gap:10px; justify-content:center;">
+    <button type="button" id="btnVerRegistros" style="background:#17a2b8; color:white; padding:10px 15px; border:none; border-radius:4px; cursor:pointer; font-size:14px; flex:1; max-width:200px;">
+        Ver registros guardados
+    </button>
+    <button type="button" id="btnImportar" style="background:#ffc107; color:#000; padding:10px 15px; border:none; border-radius:4px; cursor:pointer; font-size:14px; flex:1; max-width:200px;">
+        Importar backup
+    </button>
+    <!-- ✅ BOTÓN DE EXPORTACIÓN AÑADIDO -->
+    <button type="button" id="btnExportar" onclick="exportarRegistrosJSON()" 
+            style="background:#28a745; color:white; padding:10px 15px; border:none; border-radius:4px; cursor:pointer; font-size:14px; flex:1; max-width:200px;">
+        📤 Exportar registros
+    </button>
+    <input type="file" id="importarJSON" accept=".json" style="display:none;">
+</div>
+    </form>
+
+    <script src="script.js?v=17"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
