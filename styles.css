@@ -1,0 +1,267 @@
+/* Reset de estilos para evitar inconsistencias */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: Arial, sans-serif;
+    -moz-user-select: auto;       /* Firefox */
+    -webkit-user-select: auto;    /* Safari y Chrome */
+    -ms-user-select: auto;        /* Edge */
+    user-select: auto;            /* Estándar moderno */
+}
+
+body {
+    padding: 20px;
+    background-color: #e8f5e9; /* VERDE SUAVE */
+}
+
+h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+form {
+    max-width: 800px;
+    margin: 0 auto;
+    background: white;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+label {
+    display: inline-block;
+    margin-bottom: 5px;
+}
+
+/* Títulos principales en negrita */
+.form-group label {
+    font-weight: bold;
+}
+
+input[type="text"],
+input[type="date"],
+textarea,
+input[type="tel"] {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Cambia el color del texto de TODOS los campos a verde oliva */
+input,
+select,
+textarea {
+    color: #558B2F !important;  /* verde oliva vivo */
+}
+
+input:read-only,
+input:disabled,
+select:disabled,
+textarea:read-only,
+textarea:disabled {
+    color: #558B2F !important;
+    opacity: 1;
+}
+
+/* ESTILO PARA EL FOCO (cuando el campo está activo) */
+input:focus,
+select:focus,
+textarea:focus {
+    outline: 2px solid #558B2F !important;
+    border-color: #558B2F !important;
+}
+
+/* Ajustes para compatibilidad de selección de texto */
+.user-selectable {
+    -moz-user-select: auto;
+    -webkit-user-select: auto;
+    -ms-user-select: auto;
+    user-select: auto;
+}
+
+/* Si necesitas bloquear la selección de texto */
+.no-select {
+    -moz-user-select: none;
+    -webkit-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+}
+
+fieldset {
+    border: 1px solid #ccc;
+    padding: 10px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+legend {
+    font-weight: bold;
+    margin-bottom: 10px;
+}
+
+/* Estilo para las opciones secundarias (las de los checkboxes) */
+.checkbox-grid {
+    display: flex;
+    flex-wrap: wrap; /* Mantiene las dos columnas */
+    gap: 20px; /* Espacio entre columnas */
+}
+
+.checkbox-grid div {
+    width: 48%; /* Cada columna ocupa la mitad del contenedor */
+    display: flex;
+    flex-direction: column; /* Opciones alineadas verticalmente dentro de la columna */
+    gap: 10px; /* Espacio entre las opciones */
+}
+
+.checkbox-grid div > div {
+    display: flex;
+    flex-direction: row; /* Casilla y texto en la misma fila horizontal */
+    align-items: center; /* Centra verticalmente casilla y texto */
+    gap: 10px; /* Espacio entre casilla y texto */
+}
+
+.checkbox-grid input[type="checkbox"],
+.checkbox-grid input[type="radio"] {
+    flex-shrink: 0; /* Evita que las casillas/círculos cambien de tamaño */
+    width: 18px; /* Tamaño uniforme */
+    height: 18px; /* Tamaño uniforme */
+    margin: 0; /* Elimina márgenes predeterminados */
+}
+
+.checkbox-grid label {
+    flex-grow: 1; /* Asegura que el texto ocupe el espacio restante en la fila */
+    text-align: left; /* Asegura que el texto esté alineado a la izquierda */
+    font-weight: normal; /* Mantiene el texto sin negritas innecesarias */
+    margin: 0; /* Elimina márgenes adicionales */
+    cursor: pointer; /* Mejora la interacción visual al clicar en el texto */
+}
+
+/* Color verde para checkboxes Y radios */
+input[type="checkbox"]:checked,
+input[type="radio"]:checked {
+    accent-color: #28a745; /* mismo verde que los botones */
+}
+
+/* Ajuste para el mapa */
+#map {
+    height: 300px;
+    margin-bottom: 15px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+
+/* Botón de Enviar con prefijos de compatibilidad */
+button {
+    background-color: #28a745;
+    color: white;
+    padding: 10px;
+    border: none;
+    cursor: pointer;
+    display: block;
+    width: 100%;
+    font-size: 16px;
+    border-radius: 4px;
+}
+
+button:hover {
+    background-color: #218838;
+}
+
+input[list] {
+    width: 100%;
+    max-width: 500px; /* Ajusta este valor si necesitas más ancho */
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+}
+
+/* Ajustes específicos para Número de entrada y Cantidad de ejemplares */
+#numero_entrada, #cantidad_animales {
+    width: 120px; /* Tamaño más compacto */
+    padding: 6px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 14px; /* Texto más proporcionado */
+    text-align: center; /* Centrar el contenido */
+}
+
+/* Destacar Número de entrada con borde más oscuro */
+#numero_entrada {
+    border: 2px solid #444; /* Línea más oscura para enfatizar */
+    background-color: #f9f9f9; /* Fondo ligeramente diferente */
+    font-weight: bold; /* Resalta el texto dentro del campo */
+}
+
+/* ====== NUEVO: Destacar textos añadidos (azul verdoso) ====== */
+.texto-nuevo {
+    color: #009688; /* azul verdoso */
+    font-weight: 500;
+}
+
+/* Si quieres destacar también los pequeños textos de ayuda: */
+.form-group small.texto-nuevo {
+    display: block;
+    margin-top: 3px;
+    font-size: 0.97em;
+    color: #009688;
+}
+
+/* Botón cerrar */
+#btnCerrar {
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 1000;
+  background: rgba(255,255,255,.9);
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 2px 6px rgba(0,0,0,.15);
+  transition: background .2s;
+}
+#btnCerrar:hover { background: #fff; }
+#btnCerrar svg { width: 20px; height: 20px; color: #333; }
+
+/* Tamaño grande para el título del SweetAlert2 */
+.swal2-title-large {
+    font-size: 1.8rem !important;
+    font-weight: bold;
+}
+
+/* Tamaño grande para el contenido (números) */
+.swal2-html-large {
+    font-size: 1.5rem !important;
+    line-height: 1.5;
+    font-weight: normal;
+}
+/* Estilo para los números de entrada (solo los números serán gigantes) */
+.numeros-grandes {
+    font-size: 2.5rem !important;  /* 🔥 MUCHO MÁS GRANDE */
+    font-weight: bold;
+    color: #28a745;  /* Verde para que resalte */
+    display: inline-block; /* Para mejor control del espacio */
+    line-height: 1.2;
+}
+
+/* Tamaño normal para el resto del texto en SweetAlert2 */
+.swal2-html-large {
+    font-size: 1.2rem !important; /* Texto descriptivo normal */
+    line-height: 1.5;
+}
+
+/* SweetAlert2 visible por encima del panel «Registros Guardados» (#modalRegistros, z-index:2000) */
+.swal2-container {
+    z-index: 2100 !important;
+}
