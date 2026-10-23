@@ -3230,7 +3230,7 @@ async function comprobarSiFueRegistrada(registro) {
     Swal.fire({
       icon: 'info',
       title: 'Aún no registrada',
-      text: 'El servidor aún no tiene este registro. Puedes reenviarlo manualmente con el mismo envio_id. Dale al botón cargar y reenvía de nuevo el registro cargado',
+      text: 'El servidor aún no tiene este registro. Puedes reenviarlo manualmente con el mismo envio_id.',
       confirmButtonText: 'Aceptar'
     });
   } catch (err) {
@@ -3638,18 +3638,40 @@ document.addEventListener("DOMContentLoaded", () => {
                 list.appendChild(opt2);
             });
             
+            // Resolver el nombre oficial y, si no existe, una equivalencia exacta del mapeo
+            function resolverMunicipioManual(valorEscrito) {
+                if (!window.municipiosData) return null;
+                const normalizado = quitarAcentos(valorEscrito.trim());
+
+                const oficial = window.municipiosData.find(m =>
+                    quitarAcentos(m) === normalizado
+                );
+                if (oficial) return oficial;
+
+                if (!window.mapeoMunicipios) return null;
+
+                const destinos = new Set();
+                for (const clave in window.mapeoMunicipios) {
+                    if (quitarAcentos(clave.trim()) === normalizado) {
+                        destinos.add(window.mapeoMunicipios[clave]);
+                    }
+                }
+
+                if (destinos.size !== 1) return null;
+                const destino = destinos.values().next().value;
+                return window.municipiosData.find(m => m === destino) || null;
+            }
+
             // Autocorrección al escribir
             const municipioInput = document.getElementById("municipio");
             municipioInput.addEventListener("input", () => {
                 const valorEscrito = municipioInput.value.trim();
                 if (!valorEscrito) return;
-                
-                const encontrado = window.municipiosData.find(m => 
-                    quitarAcentos(m) === quitarAcentos(valorEscrito)
-                );
-                
-                if (encontrado) {
-                    municipioInput.value = encontrado; // Asigna versión con acento correcto
+
+                const encontrado = resolverMunicipioManual(valorEscrito);
+
+                if (encontrado && municipioInput.value !== encontrado) {
+                    municipioInput.value = encontrado; // Grafía oficial o equivalencia exacta
                 }
             });
         })
