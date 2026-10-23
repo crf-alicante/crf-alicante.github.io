@@ -3230,7 +3230,7 @@ async function comprobarSiFueRegistrada(registro) {
     Swal.fire({
       icon: 'info',
       title: 'Aún no registrada',
-      text: 'El servidor aún no tiene este registro. Puedes reenviarlo manualmente con el mismo envio_id.',
+      text: 'El servidor aún no tiene este registro. Puedes reenviarlo manualmente con el mismo envio_id. Dale al botón cargar y reenvía de nuevo el registro cargado',
       confirmButtonText: 'Aceptar'
     });
   } catch (err) {
