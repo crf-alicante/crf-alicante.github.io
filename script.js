@@ -1642,7 +1642,7 @@ if (especieComunInput) {
     var map = null;
     let mapaDisponible = false;
     try {
-    map = L.map("map").setView([39.4699, -0.3763], 10);
+    map = L.map("map").setView([38.3454, -0.4809], 10);
         // Capa OpenStreetMap (estándar)
     const osmMap = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
         attribution: "© OpenStreetMap contributors"
@@ -1987,6 +1987,83 @@ async function buscarDireccionConPrioridad(query) {
     
     // Normalizar query (sin acentos, minúsculas)
     const queryNormalizado = query.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+    // Priorizar Alicante ciudad sin forzar una localidad indicada expresamente.
+    const normalizarNombre = (texto) =>
+        texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+    const esMunicipioAlicante = (nombre) =>
+        nombre.split("/").some(parte => {
+            const normalizado = normalizarNombre(parte);
+            return normalizado === "alicante" || normalizado === "alacant";
+        });
+
+    const obtenerMunicipioExplicito = (texto) => {
+        const partes = texto.split(",").map(parte => parte.trim()).filter(Boolean);
+        for (const parte of partes) {
+            const normalizado = normalizarNombre(parte);
+            if (!normalizado) continue;
+
+            if (window.municipiosData) {
+                const oficial = window.municipiosData.find(municipio =>
+                    normalizarNombre(municipio) === normalizado
+                );
+                if (oficial) return oficial;
+            }
+
+            if (window.mapeoMunicipios) {
+                for (const clave in window.mapeoMunicipios) {
+                    if (normalizarNombre(clave) === normalizado) {
+                        return window.mapeoMunicipios[clave];
+                    }
+                }
+            }
+        }
+        return null;
+    };
+
+    const obtenerNombresMunicipio = (municipio) => {
+        if (!municipio) return [];
+        const nombres = new Set();
+        const agregar = (texto) => {
+            if (!texto) return;
+            [texto, ...texto.split("/")].forEach(parte => {
+                const normalizado = normalizarNombre(parte);
+                if (normalizado) nombres.add(normalizado);
+            });
+        };
+        agregar(municipio);
+
+        if (window.mapeoMunicipios) {
+            const municipioNorm = normalizarNombre(municipio);
+            for (const clave in window.mapeoMunicipios) {
+                const valor = window.mapeoMunicipios[clave];
+                const candidatos = [clave, valor, ...clave.split("/"), ...valor.split("/")]
+                    .map(normalizarNombre);
+                if (candidatos.includes(municipioNorm)) {
+                    agregar(clave);
+                    agregar(valor);
+                }
+            }
+        }
+        return [...nombres];
+    };
+
+    const municipioExplicito = obtenerMunicipioExplicito(query);
+    const filtrarPorMunicipioExplicito = Boolean(municipioExplicito) && !esMunicipioAlicante(municipioExplicito);
+    const nombresMunicipioExplicito = obtenerNombresMunicipio(municipioExplicito);
+
+    const esResultadoAlicanteCiudad = (resultado) => {
+        const direccion = resultado.address || {};
+        return [direccion.city, direccion.town, direccion.municipality]
+            .some(nombre => nombre && esMunicipioAlicante(nombre));
+    };
+
+    const esResultadoMunicipioExplicito = (resultado) => {
+        const direccion = resultado.address || {};
+        return [direccion.city, direccion.town, direccion.municipality, direccion.village]
+            .some(nombre => nombre && nombresMunicipioExplicito.includes(normalizarNombre(nombre)));
+    };
     
     // ✅ 1. BUSCAR MUNICIPIO (exacto o parcial)
     const resultadoMunicipio = await buscarMunicipio(query, queryNormalizado);
@@ -2090,43 +2167,54 @@ if (resultadoMunicipio) {
     // ✅ 3. Búsqueda de calles por prioridades
     console.log(`🛣️ Buscando calle con prioridades: "${query}"`);
     
+    const BBOX_ALICANTE_CIUDAD = "-0.56,38.30,-0.42,38.40";
+    const BBOX_PROVINCIA_ALICANTE = "-1.0,37.8,0.2,38.9";
     const BBOX_VALENCIA_CIUDAD = "-0.40,39.45,-0.35,39.48";
     const BBOX_PROVINCIA_VALENCIA = "-1.5,38.7,0.2,40.0";
-    const BBOX_PROVINCIA_ALICANTE = "-1.0,37.8,0.2,38.9";
     const BBOX_PROVINCIA_CASTELLON = "-0.5,39.5,0.5,40.8";
     const BBOX_COMUNITAT_VALENCIANA = "-1.5,37.8,0.5,40.8";
-    
+
     const intentos = [
-        { nombre: "Valencia ciudad", url: `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_VALENCIA_CIUDAD}&bounded=1&q=${queryEncoded}` },
-        { nombre: "Provincia de Valencia", url: `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_PROVINCIA_VALENCIA}&bounded=1&q=${queryEncoded}` },
-        { nombre: "Provincia de Alicante", url: `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_PROVINCIA_ALICANTE}&bounded=1&q=${queryEncoded}` },
-        { nombre: "Provincia de Castellón", url: `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_PROVINCIA_CASTELLON}&bounded=1&q=${queryEncoded}` },
-        { nombre: "Comunitat Valenciana", url: `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_COMUNITAT_VALENCIANA}&bounded=1&q=${queryEncoded}` },
-        { nombre: "España", url: `https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=ES&accept-language=ca&q=${queryEncoded}` }
+        { nombre: "Alicante ciudad", url: `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_ALICANTE_CIUDAD}&bounded=1&q=${queryEncoded}` },
+        { nombre: "Provincia de Alicante", url: `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_PROVINCIA_ALICANTE}&bounded=1&q=${queryEncoded}` },
+        { nombre: "Valencia ciudad", url: `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_VALENCIA_CIUDAD}&bounded=1&q=${queryEncoded}` },
+        { nombre: "Provincia de Valencia", url: `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_PROVINCIA_VALENCIA}&bounded=1&q=${queryEncoded}` },
+        { nombre: "Provincia de Castellón", url: `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_PROVINCIA_CASTELLON}&bounded=1&q=${queryEncoded}` },
+        { nombre: "Comunitat Valenciana", url: `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&countrycodes=ES&accept-language=ca&viewbox=${BBOX_COMUNITAT_VALENCIANA}&bounded=1&q=${queryEncoded}` },
+        { nombre: "España", url: `https://nominatim.openstreetmap.org/search?format=json&limit=5&addressdetails=1&countrycodes=ES&accept-language=ca&q=${queryEncoded}` }
     ];
-    
+
     for (const intento of intentos) {
         try {
             const response = await fetch(intento.url);
             const data = await response.json();
-            
-            if (data && data.length > 0) {
-                console.log(`✅ Encontrado en: ${intento.nombre}`);
-                const lat = parseFloat(data[0].lat);
-                const lng = parseFloat(data[0].lon);
-                
-                detenerSeguimiento();
-                if (marker) marker.setLatLng([lat, lng]);
-                else marker = L.marker([lat, lng]).addTo(map);
-                map.setView([lat, lng], 16);
-                
-                mostrarPopupYActualizarMunicipio(lat, lng);
-                
-                document.getElementById("coordenadas").value = lat.toFixed(5) + ", " + lng.toFixed(5);
-                document.getElementById("coordenadas_mapa").value = lat.toFixed(5) + ", " + lng.toFixed(5);
-                
-                return;
+
+            let resultado = null;
+            if (filtrarPorMunicipioExplicito) {
+                resultado = (data || []).find(esResultadoMunicipioExplicito);
+            } else if (intento.nombre === "Alicante ciudad") {
+                resultado = (data || []).find(esResultadoAlicanteCiudad);
+            } else {
+                resultado = data && data[0];
             }
+
+            if (!resultado) continue;
+
+            console.log(`✅ Encontrado en: ${intento.nombre}`);
+            const lat = parseFloat(resultado.lat);
+            const lng = parseFloat(resultado.lon);
+
+            detenerSeguimiento();
+            if (marker) marker.setLatLng([lat, lng]);
+            else marker = L.marker([lat, lng]).addTo(map);
+            map.setView([lat, lng], 16);
+
+            mostrarPopupYActualizarMunicipio(lat, lng);
+
+            document.getElementById("coordenadas").value = lat.toFixed(5) + ", " + lng.toFixed(5);
+            document.getElementById("coordenadas_mapa").value = lat.toFixed(5) + ", " + lng.toFixed(5);
+
+            return;
         } catch (err) {
             console.warn(`Error en búsqueda ${intento.nombre}:`, err);
         }
@@ -3382,21 +3470,21 @@ if (telefonoInput) {
     <p>Para que el mapa ubique bien la dirección, <strong>escribe siempre el nombre de la ciudad o pueblo completo</strong>.</p>
     <ul style="padding-left:20px; margin-top:8px;">
       <li>✅ <strong>Bien:</strong> <code>Calle Colon</code></li>
-      <li>✅ <strong>Bien:</strong> <code>La Torre, Valencia</code></li>
+      <li>✅ <strong>Bien:</strong> <code>La Santa Faz, Alicante</code></li>
       <li>✅ <strong>Bien:</strong> <code>Urbanizacion la cañada</code></li>
       <li>✅ <strong>Bien:</strong> <code>Plaza Mayor, Xàtiva</code></li>
       <li>✅ <strong>Bien:</strong> <code>Avenida Elche, Alicante</code></li>
       <li>❌ <strong>Evita:</strong> <code>La cañada</code> → no es un Municipio, el sistema puede que lo busque en otro lugar de España</li>
-      <li>❌ <strong>Evita:</strong> <code>La Torre</code> → es una pedanía de Valencia, pero el sistema busca por defecto un Municipio con ese nombre y lo encuentra en otra Provincia</li>
+      <li>❌ <strong>Evita:</strong> <code>La Santa Faz</code> → es una pedanía de Alicante, pero el sistema busca por defecto un Municipio con ese nombre y lo encuentra en otra Provincia</li>
     </ul>
     <p style="margin-top:12px; font-weight:bold; color:#27ae60;">
-      💡 Las calles y los Municipios, el sistema los busca por defecto en Valencia.
+      💡 Las calles y los Municipios, el sistema los busca por defecto en Alicante.
     </p>
   `,
   coordsFormat: `
     <h3>📍 Formatos admitidos en "Coordenadas dadas o dirección"</h3>
-    <p><strong>1. Dirección:</strong> Ej. <code>Ayuntamiento de Valencia ciudad</code></p>
-    <p><strong>2. Grados decimales:</strong> Ej. <code>39.47, -0.38</code> (usa punto como separador decimal)</p>
+    <p><strong>1. Dirección:</strong> Ej. <code>Ayuntamiento de Alicante ciudad</code></p>
+    <p><strong>2. Grados decimales:</strong> Ej. <code>38.35, -0.48</code> (usa punto como separador decimal)</p>
     <p><strong>3. Coordenadas UTM (WGS84):</strong></p>
     <ul style="margin-top:8px; padding-left:20px;">
       <li><code>731053 4413603</code> → asume zona 30N (Comunidad Valenciana)</li>
