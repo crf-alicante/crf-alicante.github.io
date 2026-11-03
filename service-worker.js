@@ -1,9 +1,9 @@
-const CACHE_NAME = "gestion-recogidas-v17";
+const CACHE_NAME = "gestion-recogidas-v19";
 const urlsToCache = [
     "./",  // Asegura que coincide con tu repositorio
     "index.html",
     "styles.css",
-    "script.js?v=17",
+    "script.js?v=19",
     "manifest.json",
     // Iconos pendientes de diseño: se omiten para que cache.addAll no falle
     // en un perfil limpio. Volver a incluirlos cuando existan los PNG.
