@@ -150,7 +150,7 @@ const BACKEND_ALICANTE_CONFIGURADO = true;
 // URL del despliegue propio de CRF Alicante. Debe ser la URL /exec del
 // proyecto Apps Script de Alicante, verificada antes de activar el flag.
 // Se deja vacía a propósito: no se reutiliza ninguna URL de La Granja.
-const API_ALICANTE_URL = "https://script.google.com/macros/s/AKfycbzwLBHL1fiwYsypA0sKyCO5lfFNGQa1O3oDIDJtDHp2Lzrkvkkr0CgWZJ9xWU5Th0ZY7g/exec";
+const API_ALICANTE_URL = "https://script.google.com/macros/s/AKfycbzAd2jU6knA3K0WdmP-SeY1uzewCWPzqu0fihejjCroh6cCdY9nH8pwOnicGN-egfn1AA/exec";
 
 function avisarBackendDeshabilitado(operacion) {
     console.warn(`Backend de CRF Alicante deshabilitado (${operacion}). No se ejecuta fetch.`);
