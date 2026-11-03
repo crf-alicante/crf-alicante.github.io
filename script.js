@@ -140,16 +140,16 @@ const STORE_NAME = 'registros';
 const DB_APERTURA_TIMEOUT_MS = 15000;
 
 /* ============================================
-   AISLAMIENTO DE DESARROLLO - BACKEND CRF ALICANTE
+   BACKEND CRF ALICANTE
    ============================================ */
-// Bloqueo local deliberado: el backend propio de CRF Alicante aún no está
-// desplegado ni verificado. Mantener en false hasta disponer de su URL /exec.
-// Las URLs de La Granja se han retirado de este archivo.
+// Backend activo. Requisito imprescindible del despliegue de Apps Script:
+// acceso "Cualquier persona" (no "Cualquier persona con cuenta de Google").
+// Esta página llama a /exec mediante fetch anónimo desde otro origen y el
+// navegador no puede completar el login de Google dentro de esa petición.
 const BACKEND_ALICANTE_CONFIGURADO = true;
 
-// URL del despliegue propio de CRF Alicante. Debe ser la URL /exec del
-// proyecto Apps Script de Alicante, verificada antes de activar el flag.
-// Se deja vacía a propósito: no se reutiliza ninguna URL de La Granja.
+// URL /exec del despliegue de Apps Script de Alicante. No se reutiliza
+// ninguna URL de La Granja.
 const API_ALICANTE_URL = "https://script.google.com/macros/s/AKfycbzwLBHL1fiwYsypA0sKyCO5lfFNGQa1O3oDIDJtDHp2Lzrkvkkr0CgWZJ9xWU5Th0ZY7g/exec";
 
 function avisarBackendDeshabilitado(operacion) {
@@ -411,12 +411,40 @@ function mensajeBloqueoRecuperacion(resolucion) {
     }
 }
 
-// Decide a qué registro local corresponde un envío nuevo ANTES de generar
-// cualquier envio_id. La identidad es persistente (puntero con operacion_id en
-// localStorage + operacion_id en el propio registro) y NO depende de los campos
-// del formulario: así, si el usuario edita observaciones u otro campo entre
-// intentos, se sigue reconociendo el MISMO envío incierto y se reutiliza su
-// envio_id en lugar de crear uno nuevo.
+// Advertencia previa a crear un registro nuevo cuando hay pendientes.
+// El envío normal NUNCA reutiliza ni modifica un pendiente: solo se reenvía
+// cuando el usuario lo carga manualmente desde «Ver registros guardados».
+async function confirmarCrearNuevoConPendientes(cantidadPendientes) {
+    const numero = Number(cantidadPendientes) || 0;
+    const texto = numero === 1
+        ? 'Hay 1 registro pendiente (guardado o sin confirmar).'
+        : 'Hay ' + numero + ' registros pendientes (guardados o sin confirmar).';
+    const html = texto +
+        ' No se reutilizará ni modificará ninguno automáticamente.<br><br>' +
+        'Para enviar o reenviar uno, abre «Ver registros guardados» y pulsa «Reintentar».<br><br>' +
+        '¿Quieres crear un registro nuevo?';
+
+    if (typeof Swal === 'undefined') {
+        return confirm(texto + '\n\nNo se reutilizará ni modificará ninguno automáticamente.\n\n¿Quieres crear un registro nuevo?');
+    }
+
+    const resultado = await Swal.fire({
+        icon: 'warning',
+        title: 'Hay registros pendientes',
+        html: html,
+        showCancelButton: true,
+        confirmButtonText: 'Crear registro nuevo',
+        cancelButtonText: 'Volver',
+        focusCancel: true
+    });
+    return !!resultado && resultado.isConfirmed === true;
+}
+
+// Clasifica el formulario frente a los registros locales. Devuelve REUTILIZAR
+// cuando hay un pendiente que coincide (para avisar y dejar que el usuario
+// decida), BLOQUEAR cuando la coincidencia es ambigua o peligrosa, o NUEVO.
+// El flujo normal no reutiliza automáticamente: la reutilización real solo
+// ocurre si el usuario cargó el registro manualmente desde la lista.
 //
 // Devuelve:
 //   { accion: 'NUEVO' }                                       -> sin envío previo: envio_id nuevo
@@ -577,15 +605,37 @@ function aplicarModoSoloLectura(activo) {
         btnEnviar.title = activo ? 'Registro enviado: solo lectura' : '';
     }
 }
+
+// Limpia el formulario y los identificadores del registro cargado.
+// No toca IndexedDB: los pendientes y sus envio_id permanecen intactos.
+function iniciarNuevoRegistro() {
+    const formulario = document.getElementById('formulario');
+    if (formulario) formulario.reset();
+
+    const fecha = document.getElementById('fecha');
+    if (fecha) fecha.value = getFechaLocalISO();
+
+    const numero = document.getElementById('numero_entrada');
+    if (numero) numero.value = '';
+
+    const otras = document.getElementById('otrasCausaWrapper');
+    if (otras) otras.style.display = 'none';
+    const chkOtras = document.getElementById('otras');
+    if (chkOtras) chkOtras.checked = false;
+
+    const anilla = document.getElementById('anillaWrapper');
+    if (anilla) anilla.style.display = 'none';
+
+    window.envioIdCargado = null;
+    window.registroIdCargado = null;
+    aplicarModoSoloLectura(false);
+}
 // ===== FIN HELPERS TESTABLES DE ENVÍO =====
 
 // PUNTERO PERSISTENTE DEL ENVÍO EN CURSO.
-// Identifica la operación de envío que está pendiente de confirmación, con
-// independencia de los campos del formulario. Vive en localStorage para
-// sobrevivir a la recarga de la página y se apoya en el operacion_id guardado
-// en el propio registro de IndexedDB. Si el puntero se pierde (por ejemplo, al
-// limpiar el almacenamiento del sitio), la recuperación NO improvisa un ID
-// nuevo: bloquea y pide reconciliar con «Ver registros guardados».
+// Se conserva para trazabilidad interna, pero el flujo normal NO lo usa para
+// reutilizar pendientes: el reenvío solo se hace cargando el registro
+// manualmente desde «Ver registros guardados».
 var CLAVE_PUNTERO_ENVIO_EN_CURSO = 'crf_alicante_envio_en_curso_v1';
 
 function leerPunteroEnvioEnCurso() {
@@ -1230,7 +1280,7 @@ const mostrarRegistros = async () => {
                         title="Comprobar si ya fue registrada (sin reenviar)">🔍 Comprobar</button>
                 <button onclick="cargarRegistroEnFormulario(${reg.id})" 
                         style="background:#28a745; color:white; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:13px; flex-shrink:0;" 
-                        title="Cargar y editar registro">📋 Cargar</button>
+                        title="Cargar este registro para reenviarlo manualmente">🔁 Reintentar</button>
             `;
         } else if (reg.estado === 'pendiente_confirmacion') {
             botones = `
@@ -1239,7 +1289,7 @@ const mostrarRegistros = async () => {
                         title="Comprobar si ya fue registrada">🔍 Comprobar</button>
                 <button onclick="cargarRegistroEnFormulario(${reg.id})" 
                         style="background:#6c757d; color:white; border:none; padding:4px 8px; border-radius:3px; cursor:pointer; font-size:13px; flex-shrink:0;" 
-                        title="Cargar registro">📋 Cargar</button>
+                        title="Cargar este pendiente para reenviarlo manualmente">🔁 Reintentar</button>
             `;
         } else if (reg.estado === 'enviado') {
             botones = `
@@ -2614,7 +2664,6 @@ function mostrarSelectorMunicipios(municipios, queryOriginal) {
         const btn = document.getElementById("enviarBtn");
         btn.disabled = true;
         btn.textContent = "Enviando...";
-        let envioIniciado = false;
         try {
         
         // 1. PRIMERO: Validación nativa del navegador (muestra "Completa este campo")
@@ -2755,14 +2804,14 @@ const data = {
                 return;
             }
         }
-        envioIniciado = true;
         await enviarDatos(data, btn, window.envioIdCargado, window.registroIdCargado, borradorEnviado);
         } finally {
             envioEnCurso = false;
             supresionBlurEnvio = false;
-            // Si el envío real no llegó a iniciarse, reabrir aquí el botón;
-            // si se inició, enviarDatos lo restaura al terminar de verdad.
-            if (!envioIniciado && !window.modoSoloLectura) {
+            // enviarDatos ya terminó (incluso si volvió antes de enviar, por
+            // ejemplo al cancelar el aviso de pendientes). Se restaura el botón
+            // salvo que el registro haya quedado en solo lectura.
+            if (!window.modoSoloLectura) {
                 btn.disabled = false;
                 btn.textContent = "Enviar";
             }
@@ -2789,14 +2838,11 @@ async function enviarDatos(data, btn, existingEnvioId = null, registroLocalId = 
   const huellaEnvio = calcularHuellaEnvio(data);
   const claveEnvio = calcularClaveEnvio(data);
 
-  // IDENTIDAD PERSISTENTE DEL ENVÍO EN CURSO.
-  // Antes de generar CUALQUIER envio_id se resuelve a qué envío previo
-  // corresponde este formulario. La identidad vive en el puntero persistente
-  // (localStorage) más el operacion_id del registro, de modo que un envío
-  // incierto se sigue reconociendo aunque cambien observaciones u otros campos,
-  // o aunque se recargue la página. Si no se puede decidir con seguridad, se
-  // bloquea: nunca se crea un ID nuevo mientras pueda existir un envío anterior
-  // sin confirmar que corresponda a la misma operación.
+  // IDENTIDAD DE LA OPERACIÓN.
+  // Un envío normal crea siempre una operación nueva. Los pendientes solo se
+  // reutilizan cuando el usuario los carga manualmente desde «Ver registros
+  // guardados» (registroLocalId/existingEnvioId). El puntero persistente no se
+  // usa para adoptar pendientes automáticamente.
   let operacionId = null;
   let estadoLocalParaOffline = null;
   // Snapshot inmutable del primer intento. Solo se rellena al ADOPTAR o CREAR
@@ -2809,39 +2855,43 @@ async function enviarDatos(data, btn, existingEnvioId = null, registroLocalId = 
     try {
       registrosLocales = await obtenerRegistros();
     } catch (errLista) {
-      console.error('No se pudo leer la lista de registros locales para recuperar un pendiente:', errLista);
-      alert('⚠️ No se pudo comprobar si este envío tenía un intento anterior. No se ha enviado nada. Vuelve a intentarlo desde «Ver registros guardados».');
+      console.error('No se pudo leer la lista de registros locales antes de crear el envío:', errLista);
+      alert('⚠️ No se pudo comprobar si había registros pendientes. No se ha enviado nada. Vuelve a intentarlo desde «Ver registros guardados».');
       return;
     }
-    const punteroEnCurso = leerPunteroEnvioEnCurso();
-    const resolucion = resolverEnvioEnCurso(registrosLocales, data, punteroEnCurso);
+
+    // Política manual: un envío normal nunca adopta un pendiente. El puntero
+    // persistente no se usa para reutilizar; solo se reenvía lo que el usuario
+    // haya cargado explícitamente (registroLocalId/existingEnvioId).
+    const pendientes = registrosLocales.filter(function (r) {
+      return !!r && (r.estado === 'guardado' || r.estado === 'pendiente_confirmacion');
+    });
+    let resolucion = resolverEnvioEnCurso(registrosLocales, data, null);
+
+    // Un pendiente que coincide con estos datos ya no se reutiliza solo:
+    // se advierte y el usuario decide si quiere crear un registro nuevo.
+    // También se permite crear uno nuevo si el pendiente coincide pero es
+    // irrecuperable (sin envio_id válido o con cantidad local inválida).
+    const motivosQuePermitenNuevo = ['IRRESOLUBLE', 'ENVIO_ID_AUSENTE', 'CANTIDAD_LOCAL_INVALIDA'];
+    if (resolucion.accion === 'REUTILIZAR' ||
+        (resolucion.accion === 'BLOQUEAR' &&
+         motivosQuePermitenNuevo.indexOf(resolucion.motivo) !== -1)) {
+      const continuar = await confirmarCrearNuevoConPendientes(pendientes.length);
+      if (!continuar) return;
+      resolucion = { accion: 'NUEVO' };
+    }
+
+    // Se conservan los bloqueos de seguridad: envío ya existente, varios
+    // candidatos ambiguos o cambio de cantidad.
     if (resolucion.accion === 'BLOQUEAR') {
       alert(mensajeBloqueoRecuperacion(resolucion));
       return;
     }
-    if (resolucion.accion === 'REUTILIZAR') {
-      if (resolucion.datosCambiados) {
-        const continuar = await confirmarContinuarEnvioPendiente(resolucion.registro, data);
-        if (!continuar) {
-          alert("ℹ️ No se ha enviado nada. El formulario se ha conservado tal cual.\n\nSi querías enviar un registro NUEVO distinto, abre «Ver registros guardados», resuelve o elimina el envío pendiente anterior y vuelve a intentarlo.");
-          return;
-        }
-      }
-      registroLocalId = resolucion.registro.id;
-      existingEnvioId = resolucion.registro.envio_id;
-      operacionId = resolucion.registro.operacion_id || generarEnvioId();
-      estadoLocalParaOffline = resolucion.registro.estado;
-      // Si el registro adoptado no tenía snapshot original, se fija ahora.
-      if (!resolucion.registro.huella_original && !resolucion.registro.datos_originales) {
-        huellaOriginalInmutable = huellaEnvio;
-        datosOriginalesInmutables = construirDatosOriginales_(data);
-      }
-    } else {
-      // Envío nuevo: identidad persistente para reconocerlo si la respuesta es incierta.
-      operacionId = generarEnvioId();
-      huellaOriginalInmutable = huellaEnvio;
-      datosOriginalesInmutables = construirDatosOriginales_(data);
-    }
+
+    // Envío nuevo: identidad persistente para reconocerlo si la respuesta es incierta.
+    operacionId = generarEnvioId();
+    huellaOriginalInmutable = huellaEnvio;
+    datosOriginalesInmutables = construirDatosOriginales_(data);
   }
 
   // Generar o conservar envio_id. En un reenvío se sustituye por el valor
@@ -3015,16 +3065,28 @@ async function enviarDatos(data, btn, existingEnvioId = null, registroLocalId = 
     // 2. Enviar el formulario (CORS: se lee la respuesta real de doPost())
     // Caso a: si la petición no produce una respuesta fiable (fallo de red,
     // lectura o parseo), el envío NO se considera confirmado.
+    //
+    // La petición es deliberadamente "simple" para CORS: POST con
+    // Content-Type text/plain y sin cabeceras personalizadas. Así el navegador
+    // no genera un preflight OPTIONS, que Apps Script no atiende.
+    // credentials:"omit" es intencionado: el Web App debe ser público. Si el
+    // despliegue exige cuenta de Google, esta petición anónima acaba en 401
+    // antes de llegar a doPost(), y el navegador lo muestra como error CORS.
     let response;
     try {
       response = await fetch(API_ALICANTE_URL, {
         method: "POST",
         mode: "cors",
+        credentials: "omit",
+        redirect: "follow",
+        cache: "no-store",
         headers: { "Content-Type": "text/plain; charset=UTF-8" },
         body: JSON.stringify({ ...data, envio_id: envioId })
       });
     } catch (redErr) {
       // Caso a: fallo de comunicación tras emitir el fetch → pendiente_confirmacion
+      console.error("Fallo de red/CORS al contactar con Apps Script:", redErr);
+      console.error("Comprueba que el despliegue tenga acceso 'Cualquier persona'. Un fetch desde GitHub Pages no puede autenticarse con una cuenta de Google.");
       const estadoAplicado = await marcarEstadoSinDegradar("pendiente_confirmacion");
       if (estadoAplicado === 'YA_ENVIADO') { alert(avisoYaEnviado); return; }
       alert("⚠️ No se pudo confirmar el envío. El registro está como 'pendiente de confirmación'.\nUsa 'Comprobar si ya fue registrada' desde 'Ver registros guardados'.");
@@ -3036,6 +3098,11 @@ async function enviarDatos(data, btn, existingEnvioId = null, registroLocalId = 
     if (!response.ok) {
       const estadoAplicado = await marcarEstadoSinDegradar("pendiente_confirmacion");
       if (estadoAplicado === 'YA_ENVIADO') { alert(avisoYaEnviado); return; }
+      if (response.status === 401 || response.status === 403) {
+        console.error("Apps Script respondió " + response.status + ": el despliegue exige autenticación. Configura el acceso como 'Cualquier persona'.");
+        alert(`⚠️ El servidor rechazó la petición con HTTP ${response.status} (autenticación). El despliegue de Apps Script debe permitir el acceso a "Cualquier persona", no solo a usuarios con cuenta de Google.\n\nEl registro está como 'pendiente de confirmación'.\nUsa 'Comprobar si ya fue registrada' desde 'Ver registros guardados'.`);
+        return;
+      }
       alert(`⚠️ El servidor respondió con un estado HTTP ${response.status}. No se puede confirmar el envío. El registro está como 'pendiente de confirmación'.\nUsa 'Comprobar si ya fue registrada' desde 'Ver registros guardados'.`);
       return;
     }
@@ -3161,11 +3228,7 @@ async function enviarDatos(data, btn, existingEnvioId = null, registroLocalId = 
     }
 
     try {
-      document.getElementById("formulario").reset();
-      document.getElementById('fecha').value = getFechaLocalISO();
-      window.envioIdCargado = null;
-      window.registroIdCargado = null;
-      aplicarModoSoloLectura(false);
+      iniciarNuevoRegistro();
     } catch (errFormulario) {
       registrarErrorInterfaz('restablecimiento del formulario', errFormulario);
     }
@@ -3255,7 +3318,15 @@ async function comprobarSiFueRegistrada(registro) {
   try {
     const cantidadEsperada = Math.max(1, parseInt(registro.cantidad_animales, 10) || 1);
     const url = API_ALICANTE_URL + "?funcion=consultarPorEnvio&envio_id=" + encodeURIComponent(registro.envio_id);
-    const response = await fetch(url, { method: 'GET', mode: 'cors' });
+    // Consulta anónima y sin caché: el Web App debe ser público. No se envían
+    // cookies de Google a propósito (credentials:"omit").
+    const response = await fetch(url, {
+      method: 'GET',
+      mode: 'cors',
+      credentials: 'omit',
+      redirect: 'follow',
+      cache: 'no-store'
+    });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
@@ -3323,6 +3394,7 @@ async function comprobarSiFueRegistrada(registro) {
     });
   } catch (err) {
     console.error("Error al comprobar:", err);
+    console.error("Si el error es de red/CORS o HTTP 401, revisa que el despliegue de Apps Script tenga acceso 'Cualquier persona'.");
     alert("❌ Error al comprobar si fue registrada: " + err.message);
   }
 }
@@ -3351,10 +3423,15 @@ if (telefonoInput) {
     // Modal de registros
     const modal = document.getElementById('modalRegistros');
     const btnVerRegistros = document.getElementById('btnVerRegistros');
+    const btnNuevoRegistro = document.getElementById('btnNuevoRegistro');
     const btnImportar = document.getElementById('btnImportar');
     const btnCerrarModal = document.getElementById('btnCerrarModal');
     const inputImportarJSON = document.getElementById('importarJSON');
     const btnImportarModal = document.getElementById('btnImportarModal');
+
+    if (btnNuevoRegistro) {
+        btnNuevoRegistro.addEventListener('click', iniciarNuevoRegistro);
+    }
 
     btnVerRegistros.addEventListener('click', async () => {
         modal.style.display = 'block';
